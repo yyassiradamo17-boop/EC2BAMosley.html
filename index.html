@@ -1783,5 +1783,69 @@ if(anc) openAnchor(anc,false);
 window.__ec2={go:go,record:record,buildExport:buildExport,openStd:openStd,openAnchor:openAnchor};
 })();
 </script>
+<!-- ===== Ponte CYPECAD (v1): recebe esforços do Leitor CYPECAD e preenche a calculadora ===== -->
+<script>
+(function(){
+'use strict';
+window.__cypeBridge='ec2';
+try{ if(!window.name) window.name='cy-ec2'; }catch(e){}
+var done={};
+function pick(el,v){
+  var s=String(v), o=[].find.call(el.options,function(o){return o.value===s;})
+    ||[].find.call(el.options,function(o){return o.text.trim()===s;})
+    ||[].find.call(el.options,function(o){return parseFloat(o.value)===parseFloat(s)||parseFloat(o.text)===parseFloat(s);});
+  if(o){ el.value=o.value; return true; } return false;
+}
+function fill(doc,vals){
+  var n=0;
+  Object.keys(vals).forEach(function(id){
+    var v=vals[id]; if(v===''||v==null) return;
+    var el=doc.getElementById(id); if(!el) return;
+    if(el.tagName==='SELECT'){ if(!pick(el,v)) return; }
+    else if(el.type==='checkbox') el.checked=!!v;
+    else el.value=v;
+    el.dispatchEvent(new Event('input',{bubbles:true}));
+    el.dispatchEvent(new Event('change',{bubbles:true}));
+    n++;
+  });
+  return n;
+}
+function frame(){ return [].find.call(document.querySelectorAll('#stage > iframe'),function(f){ return !f.hidden; }); }
+function banner(t){
+  var b=document.getElementById('cypeBanner');
+  if(!b){ b=document.createElement('div'); b.id='cypeBanner'; b.setAttribute('role','status');
+    b.style.cssText='position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:60;background:var(--ink);color:var(--paper);padding:8px 14px;border-radius:6px;font:600 .85rem var(--f-body);box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:92vw';
+    document.body.appendChild(b); }
+  b.textContent=t; b.hidden=false; clearTimeout(banner.t); banner.t=setTimeout(function(){ b.hidden=true; },6000);
+}
+window.addEventListener('message',function(e){
+  var d=e.data;
+  if(!d||d.type!=='cype-fill'||!d.id||typeof d.target!=='string'||!d.values||typeof d.values!=='object') return;
+  var ack=function(n){ try{ e.source.postMessage({type:'cype-ack',id:d.id,label:d.label,n:n},'*'); }catch(x){} };
+  if(done[d.id]){ ack(); return; }
+  done[d.id]=1;
+  try{ window.__ec2.go(d.target); }catch(x){ console.error(x); }
+  var tries=0;
+  (function wait(){
+    var f=frame(), ok=false;
+    try{ ok=!!(f&&f.contentWindow&&f.contentWindow.__FAM&&f.contentDocument.readyState==='complete'); }catch(x){}
+    if(!ok){ if(++tries<80) setTimeout(wait,150); return; }
+    setTimeout(function(){
+      var n=fill(f.contentDocument,d.values);
+      banner('CYPECAD → '+(d.label||d.target)+' · '+n+' campos preenchidos');
+      ack(n);
+    },400);
+  })();
+});
+var tools=document.querySelector('.bar .tools');
+if(tools){
+  var b=document.createElement('button'); b.className='ib'; b.type='button'; b.id='cypeBtn';
+  b.title='Ler listagens do CYPECAD (abre o Leitor CYPECAD) e enviar esforços para as calculadoras';
+  b.innerHTML='<svg class="ico" viewBox="0 0 24 24"><path d="M4 3h11l5 5v13H4z"/><path d="M15 3v5h5"/><path d="M7 12h10M7 15.5h10M7 19h6"/></svg><span class="lbl">CYPECAD</span>';
+  b.onclick=function(){ window.open('https://yyassiradamo17-boop.github.io/leitor-cypecad/','cy-leitor'); };
+  tools.insertBefore(b,tools.firstChild);
+}
+})();
+</script>
 </body>
 </html>
